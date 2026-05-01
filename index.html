@@ -1209,6 +1209,8 @@ function importShoppingCSV(event){
   reader.readAsText(file);
   event.target.value='';
 }
+
+function importJSON(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=async e=>{
