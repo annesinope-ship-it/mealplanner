@@ -203,9 +203,8 @@
   .import-tab.active{background:var(--sage);color:white;border-color:var(--sage);}
   .import-tab-content{display:none;}
   .import-tab-content.active{display:block;}
-  .photo-drop-zone{border:2px dashed var(--ink-faint);border-radius:10px;padding:1.5rem;background:var(--cream);text-align:center;cursor:pointer;transition:all 0.2s;min-height:130px;display:flex;align-items:center;justify-content:center;}
-  .photo-drop-zone:hover{border-color:var(--sage);background:var(--sage-light);}
-  .photo-drop-zone.has-photo{padding:8px;}
+  .dish-photo-zone{border:1.5px dashed var(--ink-faint);border-radius:9px;background:var(--cream);cursor:pointer;transition:all 0.2s;overflow:hidden;}
+  .dish-photo-zone:hover{border-color:var(--sage);background:var(--sage-light);}
   .url-row{display:flex;gap:7px;}
   .url-row input{flex:1;font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 10px;border:1px solid var(--ink-faint);border-radius:7px;background:var(--warm-white);color:var(--ink);outline:none;}
   .btn-fetch{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;padding:8px 14px;background:var(--terracotta);color:white;border:none;border-radius:7px;cursor:pointer;white-space:nowrap;transition:opacity 0.15s;}
@@ -390,35 +389,19 @@
 <div class="modal-overlay" id="addRecipeOverlay" onclick="closeAddRecipe(event)">
   <div class="modal">
     <h3 id="addRecipeTitle">Nouvelle recette</h3>
-    <div class="modal-sub">3 façons d'importer — choisis celle qui marche le mieux</div>
+    <div class="modal-sub">2 façons d'importer les infos de la recette</div>
 
     <!-- IMPORT TABS -->
     <div class="modal-section">
       <div class="import-tabs">
-        <button class="import-tab active" onclick="switchImportTab('url',this)">🔗 URL</button>
-        <button class="import-tab" onclick="switchImportTab('text',this)">📋 Texte / Caption</button>
+        <button class="import-tab active" onclick="switchImportTab('text',this)">📋 Coller du texte</button>
         <button class="import-tab" onclick="switchImportTab('photo',this)">📸 Capture d'écran</button>
       </div>
 
-      <!-- TAB URL -->
-      <div class="import-tab-content active" id="itab-url">
-        <div class="url-import-box" style="margin-top:8px">
-          <div class="url-row">
-            <input type="text" id="recipeUrl" placeholder="https://www.marmiton.org/… ou instagram.com/reel/…">
-            <button class="btn-fetch" id="fetchBtn" onclick="fetchFromUrl()">Analyser ✦</button>
-          </div>
-          <div class="source-chips" style="margin-top:6px">
-            <span class="source-chip web">🌿 Marmiton</span>
-            <span class="source-chip web">🔗 750g, Cuisine</span>
-            <span class="source-chip ig">📷 Instagram (limité)</span>
-          </div>
-        </div>
-      </div>
-
       <!-- TAB TEXT -->
-      <div class="import-tab-content" id="itab-text">
+      <div class="import-tab-content active" id="itab-text">
         <div style="margin-top:8px">
-          <textarea class="modal-input modal-textarea" id="recipeRawText" style="min-height:100px" placeholder="Colle ici la description Instagram, le texte copié depuis un site, n'importe quoi qui contient la recette…&#10;&#10;Ex: Pasta au citron 🍋&#10;- 200g de pâtes&#10;- 1 citron&#10;- parmesan…"></textarea>
+          <textarea class="modal-input modal-textarea" id="recipeRawText" style="min-height:90px" placeholder="Colle ici la description Instagram, le texte copié depuis Marmiton, 750g…&#10;&#10;Ex: Pasta au citron 🍋&#10;- 200g de pâtes&#10;- 1 citron&#10;- parmesan…"></textarea>
           <button class="btn-fetch" style="margin-top:8px;width:100%" onclick="fetchFromText()">Analyser le texte ✦</button>
         </div>
       </div>
@@ -439,11 +422,28 @@
             </div>
           </div>
           <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
-          <button class="btn-fetch" style="margin-top:8px;width:100%" id="analyzePhotoBtn" onclick="fetchFromPhoto()" disabled>Analyser la photo ✦</button>
+          <button class="btn-fetch" style="margin-top:8px;width:100%" id="analyzePhotoBtn" onclick="fetchFromPhoto()" disabled>Analyser la capture ✦</button>
         </div>
       </div>
 
       <div id="urlStatus" class="url-status" style="margin-top:8px"></div>
+    </div>
+
+    <!-- PHOTO DU PLAT -->
+    <div class="modal-section">
+      <label class="modal-label">Photo du plat</label>
+      <div class="dish-photo-zone" id="dishPhotoZone" onclick="document.getElementById('dishPhotoInput').click()">
+        <div id="dishPhotoPreview" style="display:none;position:relative">
+          <img id="dishPhotoImg" style="width:100%;height:140px;object-fit:cover;border-radius:8px">
+          <button onclick="clearDishPhoto(event)" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px">✕</button>
+        </div>
+        <div id="dishPhotoPlaceholder" style="display:flex;flex-direction:column;align-items:center;padding:1rem">
+          <div style="font-size:28px;margin-bottom:6px">🍽️</div>
+          <div style="font-size:12px;font-weight:500;color:var(--ink)">Ajouter une photo du plat</div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:3px">depuis ta galerie</div>
+        </div>
+      </div>
+      <input type="file" id="dishPhotoInput" accept="image/*" style="display:none" onchange="handleDishPhotoUpload(event)">
     </div>
     <div class="modal-section">
       <label class="modal-label">Nom *</label>
@@ -470,6 +470,10 @@
     <div class="modal-section">
       <label class="modal-label">Instructions / Notes</label>
       <textarea class="modal-input modal-textarea" id="recipeNotes" placeholder="Étapes, astuces, variantes…"></textarea>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Lien source (Instagram, Marmiton…)</label>
+      <input type="text" class="modal-input" id="recipeUrl" placeholder="https://www.instagram.com/reel/… ou marmiton.org/…">
     </div>
     <div class="modal-section">
       <label class="modal-label">Emoji</label>
@@ -816,7 +820,8 @@ function renderRecipeBook(){
     const card=document.createElement('div');card.className='recipe-card-full';
     const tag=r.cat?`<span class="rc-tag ${r.cat}">${CAT_EMOJI[r.cat]||''} ${CAT_LABELS[r.cat]||r.cat}</span>`:'';
     const badge=r.source?`<span class="rc-source-badge">🔗 ${r.source}</span>`:'';
-    card.innerHTML=`<div class="rc-thumb">${r.imageUrl?`<img src="${r.imageUrl}" onerror="this.style.display='none'">`:''}${!r.imageUrl?`<span>${r.emoji||CAT_EMOJI[r.cat]||'🍽️'}</span>`:''}${badge}</div>
+    const thumbContent=r.dishPhoto?`<img src="${r.dishPhoto}" style="width:100%;height:100%;object-fit:cover">`:`<span>${r.emoji||CAT_EMOJI[r.cat]||'🍽️'}</span>`;
+    card.innerHTML=`<div class="rc-thumb">${thumbContent}${badge}</div>
       <div class="rc-body"><div class="rc-tags">${tag}</div><div class="rc-title">${r.name}</div><div class="rc-meta">${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''}</div></div>
       <div class="rc-footer"><button class="rc-btn rc-btn-plan" onclick="quickPlan(event,'${r.id}')">Planifier</button><button class="rc-btn rc-btn-del" onclick="delRecipe(event,'${r.id}')">Supprimer</button></div>`;
     card.addEventListener('click',e=>{if(e.target.classList.contains('rc-btn'))return;openDetail(r.id);});
@@ -839,12 +844,38 @@ function openAddRecipe(id=null){
   document.getElementById('urlStatus').textContent='';document.getElementById('urlStatus').className='url-status';
   document.querySelectorAll('.cat-chip').forEach(c=>c.className='cat-chip');
   if(r?.cat){selectedCat=r.cat;const el=document.querySelector(`.cat-chip[data-cat="${r.cat}"]`);if(el)el.className=`cat-chip active ${r.cat}`;}
+  // reset dish photo
+  dishPhotoBase64=r?.dishPhoto||null;
+  if(dishPhotoBase64){document.getElementById('dishPhotoImg').src=dishPhotoBase64;document.getElementById('dishPhotoPreview').style.display='block';document.getElementById('dishPhotoPlaceholder').style.display='none';}
+  else{document.getElementById('dishPhotoPreview').style.display='none';document.getElementById('dishPhotoPlaceholder').style.display='flex';}
   document.getElementById('addRecipeOverlay').classList.add('open');
 }
 function closeAddRecipe(e){if(e&&e.target!==document.getElementById('addRecipeOverlay'))return;document.getElementById('addRecipeOverlay').classList.remove('open');}
 function selectCat(cat,el){selectedCat=selectedCat===cat?null:cat;document.querySelectorAll('.cat-chip').forEach(c=>c.className='cat-chip');if(selectedCat)el.className=`cat-chip active ${cat}`;}
 
-// ── IMPORT TAB SWITCH ─────────────────────────────────────────────
+// DISH PHOTO
+let dishPhotoBase64=null;
+
+function handleDishPhotoUpload(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    dishPhotoBase64=e.target.result; // keep as data URL for display
+    document.getElementById('dishPhotoImg').src=e.target.result;
+    document.getElementById('dishPhotoPreview').style.display='block';
+    document.getElementById('dishPhotoPlaceholder').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearDishPhoto(e){
+  e.stopPropagation();
+  dishPhotoBase64=null;
+  document.getElementById('dishPhotoImg').src='';
+  document.getElementById('dishPhotoPreview').style.display='none';
+  document.getElementById('dishPhotoPlaceholder').style.display='flex';
+  document.getElementById('dishPhotoInput').value='';
+}
 function switchImportTab(id,btn){
   document.querySelectorAll('.import-tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.import-tab-content').forEach(t=>t.classList.remove('active'));
@@ -972,8 +1003,7 @@ async function fetchFromPhoto(){
 
 function saveRecipe(){
   const name=document.getElementById('recipeName').value.trim();if(!name){document.getElementById('recipeName').focus();return;}
-  const urlEl=document.getElementById('recipeUrl');
-  const r={id:editingId||'r_'+Date.now(),name,cat:selectedCat||null,time:document.getElementById('recipeTime').value.trim(),servings:document.getElementById('recipeServings').value.trim(),ingredients:document.getElementById('recipeIngredients').value.split('\n').map(s=>s.trim()).filter(Boolean),notes:document.getElementById('recipeNotes').value.trim(),emoji:document.getElementById('recipeEmoji').value.trim()||null,url:urlEl._url||urlEl.value.trim()||null,source:urlEl._source||null};
+  const r={id:editingId||'r_'+Date.now(),name,cat:selectedCat||null,time:document.getElementById('recipeTime').value.trim(),servings:document.getElementById('recipeServings').value.trim(),ingredients:document.getElementById('recipeIngredients').value.split('\n').map(s=>s.trim()).filter(Boolean),notes:document.getElementById('recipeNotes').value.trim(),emoji:document.getElementById('recipeEmoji').value.trim()||null,url:document.getElementById('recipeUrl').value.trim()||null,source:document.getElementById('recipeUrl').value.trim()?new URL(document.getElementById('recipeUrl').value.trim()).hostname.replace('www.',''):null,dishPhoto:dishPhotoBase64||null};
   if(editingId)myRecipes=myRecipes.map(x=>x.id===editingId?r:x);else myRecipes.unshift(r);
   save();document.getElementById('addRecipeOverlay').classList.remove('open');renderRecipeBook();renderSavedRecipesMini();
 }
@@ -982,11 +1012,12 @@ function delRecipe(e,id){e.stopPropagation();if(!confirm('Supprimer cette recett
 // ── RECIPE DETAIL ─────────────────────────────────────────────────
 function openDetail(id){
   const r=myRecipes.find(x=>x.id===id);if(!r)return;
+  const heroContent=r.dishPhoto?`<img src="${r.dishPhoto}" style="width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0">`:(r.emoji||CAT_EMOJI[r.cat]||'🍽️');
   const tag=r.cat?`<span class="rc-tag ${r.cat}" style="font-size:10px;padding:2px 9px">${CAT_EMOJI[r.cat]||''} ${CAT_LABELS[r.cat]||r.cat}</span>`:'';
   const link=r.url?`<a href="${r.url}" target="_blank" class="rdm-link">Voir la source →</a>`:'';
   const ing=r.ingredients?.length?`<p class="rdm-section-title">Ingrédients</p><ul class="rdm-ingredients">${r.ingredients.map(i=>`<li>${i}</li>`).join('')}</ul>`:'';
   const notes=r.notes?`<p class="rdm-section-title">Instructions</p><div class="rdm-notes">${r.notes}</div>`:'';
-  document.getElementById('detailContent').innerHTML=`<div class="rdm-hero">${r.imageUrl?`<img src="${r.imageUrl}" onerror="this.style.display='none'">`:''}${!r.imageUrl?r.emoji||CAT_EMOJI[r.cat]||'🍽️':''}</div>
+  document.getElementById('detailContent').innerHTML=`<div class="rdm-hero">${heroContent}</div>
     <div class="rdm-body"><div class="rdm-title">${r.name}</div><div class="rdm-meta">${tag} ${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''} ${link}</div>${ing}${notes}</div>
     <div class="rdm-footer"><button class="rdm-btn rdm-btn-plan" onclick="quickPlan(event,'${r.id}')">Planifier</button><button class="rdm-btn" style="background:var(--gold-light);color:var(--gold);border:1px solid var(--gold);flex:1" onclick="closeDetail();openAddRecipe('${r.id}')">✏️ Modifier</button><button class="rdm-btn rdm-btn-close" style="flex:0.7" onclick="closeDetail()">Fermer</button></div>`;
   document.getElementById('detailOverlay').classList.add('open');
