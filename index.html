@@ -570,6 +570,22 @@
         <button class="btn-export secondary" onclick="document.getElementById('importFile').click()">Importer</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
       </div>
+      <div class="export-opt">
+        <div>
+          <div class="export-opt-info">🥗 Importer des recettes (CSV)</div>
+          <div class="export-opt-desc">Ajouter des recettes depuis un fichier CSV</div>
+        </div>
+        <button class="btn-export secondary" onclick="document.getElementById('importRecipesFile').click()">Importer</button>
+        <input type="file" id="importRecipesFile" accept=".csv" style="display:none" onchange="importRecipesCSV(event)">
+      </div>
+      <div class="export-opt">
+        <div>
+          <div class="export-opt-info">🛒 Importer une liste de courses (CSV)</div>
+          <div class="export-opt-desc">Ajouter des articles depuis un fichier CSV</div>
+        </div>
+        <button class="btn-export secondary" onclick="document.getElementById('importShoppingFile').click()">Importer</button>
+        <input type="file" id="importShoppingFile" accept=".csv" style="display:none" onchange="importShoppingCSV(event)">
+      </div>
     </div>
     <div class="modal-footer" style="margin-top:0">
       <button class="btn-cancel" style="flex:1" onclick="closeExportModal()">Fermer</button>
@@ -1130,7 +1146,69 @@ function exportShoppingCSV(){
   dlFile(csv,`courses-${new Date().toISOString().slice(0,10)}.csv`,'text/csv;charset=utf-8');
 }
 
-function importJSON(event){
+function importRecipesCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const lines=e.target.result.split('\n').filter(l=>l.trim());
+      const headers=lines[0].split(',').map(h=>h.replace(/"/g,'').trim().toLowerCase());
+      let count=0;
+      for(let i=1;i<lines.length;i++){
+        const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||[];
+        const clean=c=>c?c.replace(/^"|"$/g,'').trim():'';
+        const row={};headers.forEach((h,idx)=>row[h]=clean(cols[idx]||''));
+        if(!row['nom']&&!row['name'])continue;
+        const name=row['nom']||row['name'];
+        if(myRecipes.find(r=>r.name.toLowerCase()===name.toLowerCase()))continue;
+        const catMap={'plat':'plat','salade':'salade','dessert':'dessert','snack':'snack','boisson':'boisson'};
+        const catRaw=(row['catégorie']||row['categorie']||row['cat']||'').toLowerCase();
+        const cat=Object.keys(catMap).find(k=>catRaw.includes(k))||null;
+        const ingredients=(row['ingrédients']||row['ingredients']||'').split('|').map(s=>s.trim()).filter(Boolean);
+        myRecipes.unshift({
+          id:'r_'+Date.now()+'_'+i,
+          name,cat,
+          time:row['temps']||row['time']||'',
+          servings:row['portions']||row['servings']||'',
+          ingredients,
+          notes:row['notes']||row['instructions']||'',
+          emoji:null,url:row['url']||null,
+          source:row['source']||null,dishPhoto:null
+        });
+        count++;
+      }
+      await saveKV();renderSavedRecipesMini();renderRecipeBook();
+      document.getElementById('exportOverlay').classList.remove('open');
+      alert(`✓ ${count} recette${count>1?'s':''} importée${count>1?'s':''} !`);
+    }catch(err){alert('Erreur lors de l\'import : '+err.message);}
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
+function importShoppingCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const lines=e.target.result.split('\n').filter(l=>l.trim());
+      let count=0;
+      for(let i=1;i<lines.length;i++){
+        const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||[];
+        const name=cols[0]?cols[0].replace(/^"|"$/g,'').trim():'';
+        if(!name)continue;
+        if(shopList.find(s=>s.name.toLowerCase()===name.toLowerCase()))continue;
+        shopList.push({name,checked:false,manual:true,id:'m_'+Date.now()+'_'+i});
+        count++;
+      }
+      await saveKV();renderShoppingList();
+      document.getElementById('exportOverlay').classList.remove('open');
+      alert(`✓ ${count} article${count>1?'s':''} ajouté${count>1?'s':''} !`);
+    }catch(err){alert('Erreur lors de l\'import : '+err.message);}
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=async e=>{
