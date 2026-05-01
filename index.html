@@ -1133,15 +1133,16 @@ function exportShoppingCSV(){
 function importJSON(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       const data=JSON.parse(e.target.result);
       if(data.planData)planData=data.planData;
       if(data.shopList)shopList=data.shopList;
       if(data.myRecipes)myRecipes=data.myRecipes;
-      save();renderCalendar();genShoppingList();renderSavedRecipesMini();
+      await saveKV(); // save to KV + localStorage
+      renderCalendar();genShoppingList();renderSavedRecipesMini();
       document.getElementById('exportOverlay').classList.remove('open');
-      alert('✓ Données importées avec succès !');
+      alert('✓ Données importées et synchronisées !');
     }catch(err){alert('Fichier JSON invalide.');}
   };
   reader.readAsText(file);
