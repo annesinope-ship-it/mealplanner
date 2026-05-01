@@ -905,7 +905,7 @@ function fillFormFromRecipe(recipe,src){
 const AI_PROMPT_SUFFIX=`\nRéponds UNIQUEMENT en JSON valide (sans markdown, sans backticks) :\n{"name":"","cat":"plat|salade|dessert|snack|boisson","time":"X min","servings":"X pers","emoji":"🍽️","ingredients":["ingrédient 1","ingrédient 2"],"notes":"instructions en 2-3 phrases"}`;
 
 async function callAI(messages){
-  const resp=await fetch('/.netlify/functions/ai',{
+  const resp=await fetch('/ai',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({messages})
   });
