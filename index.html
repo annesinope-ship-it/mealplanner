@@ -596,8 +596,37 @@ let currentSlot=null,selectedMeal=null,selectedCat=null,editingId=null;
 let planRecipe=null,planDay=null,planType=null,pendingShareUrl=null;
 
 // ── PERSIST ──────────────────────────────────────────────────────
-function save(){try{localStorage.setItem('mp4_plan',JSON.stringify(planData));localStorage.setItem('mp4_shop',JSON.stringify(shopList));localStorage.setItem('mp4_recipes',JSON.stringify(myRecipes));}catch(e){}}
-function load(){try{const p=localStorage.getItem('mp4_plan');const s=localStorage.getItem('mp4_shop');const r=localStorage.getItem('mp4_recipes');if(p)planData=JSON.parse(p);if(s)shopList=JSON.parse(s);if(r)myRecipes=JSON.parse(r);}catch(e){}}
+// ── PERSIST (KV + localStorage fallback) ─────────────────────────
+function saveLocal(){try{localStorage.setItem('mp4_plan',JSON.stringify(planData));localStorage.setItem('mp4_shop',JSON.stringify(shopList));localStorage.setItem('mp4_recipes',JSON.stringify(myRecipes));}catch(e){}}
+function loadLocal(){try{const p=localStorage.getItem('mp4_plan');const s=localStorage.getItem('mp4_shop');const r=localStorage.getItem('mp4_recipes');if(p)planData=JSON.parse(p);if(s)shopList=JSON.parse(s);if(r)myRecipes=JSON.parse(r);}catch(e){}}
+
+async function saveKV(){
+  try{
+    await fetch('/data',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({planData,shopList,myRecipes})
+    });
+  }catch(e){console.log('KV save failed, using localStorage');}
+  saveLocal();
+}
+
+async function loadKV(){
+  try{
+    const resp=await fetch('/data');
+    if(resp.ok){
+      const data=await resp.json();
+      if(data.planData&&Object.keys(data.planData).length>0)planData=data.planData;
+      if(data.shopList&&data.shopList.length>0)shopList=data.shopList;
+      if(data.myRecipes&&data.myRecipes.length>0)myRecipes=data.myRecipes;
+      saveLocal(); // sync to localStorage too
+      return;
+    }
+  }catch(e){console.log('KV load failed, using localStorage');}
+  loadLocal();
+}
+
+function save(){saveKV();}
+function load(){loadLocal();} // load local first for speed, KV loaded async on init
 
 // ── PWA ICON ─────────────────────────────────────────────────────
 function generateLogoDataUrl(){
@@ -1120,13 +1149,20 @@ function importJSON(event){
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
-load();
+load(); // localStorage first for instant display
 checkSharedUrl();
 renderCalendar();
 genShoppingList();
 renderSavedRecipesMini();
 document.getElementById('weekNav').style.display='flex';
 try{const icon=generateLogoDataUrl();document.getElementById('appleIcon').href=icon;}catch(e){}
+
+// Then load from KV and refresh
+loadKV().then(()=>{
+  renderCalendar();
+  genShoppingList();
+  renderSavedRecipesMini();
+});
 
 // Drag & drop on photo zone
 document.addEventListener('DOMContentLoaded',()=>{
