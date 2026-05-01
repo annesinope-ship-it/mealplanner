@@ -1,14 +1,33 @@
-export async function onRequestPost(context) {
-  try {
-    const body = await context.request.json();
-    const apiKey = context.env.ANTHROPIC_API_KEY;
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+      body: '',
+    };
+  }
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: { message: 'Clé API manquante' } }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      });
-    }
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
+  const apiKey = process.env.Mealplanner;
+  if (!apiKey) {
+    console.error('Mealplanner env var is not set');
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: { message: 'Clé API manquante — vérifie les variables d\'environnement Netlify' } }),
+    };
+  }
+
+  try {
+    const body = JSON.parse(event.body);
+    console.log('Calling Anthropic API with', body.messages?.length, 'messages');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -24,27 +43,24 @@ export async function onRequestPost(context) {
       }),
     });
 
-    const data = await response.text();
+    const text = await response.text();
+    console.log('Anthropic response status:', response.status);
+    console.log('Anthropic response:', text.slice(0, 200));
 
-    return new Response(data, {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    });
-
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: text,
+    };
   } catch (err) {
-    return new Response(JSON.stringify({ error: { message: err.message } }), {
-      status: 500,
+    console.error('Function error:', err.message);
+    return {
+      statusCode: 500,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    });
+      body: JSON.stringify({ error: { message: err.message } }),
+    };
   }
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
+};
