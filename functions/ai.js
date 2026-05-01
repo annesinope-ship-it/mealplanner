@@ -1,7 +1,7 @@
 export async function onRequestPost(context) {
   try {
     const body = await context.request.json();
-    const apiKey = context.env.ANTHROPIC_API_KEY;
+    const apiKey = context.env.Mealplanner;
 
     if (!apiKey) {
       return new Response(JSON.stringify({ error: { message: 'Clé API manquante' } }), {
