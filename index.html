@@ -1151,29 +1151,56 @@ function importRecipesCSV(event){
   const reader=new FileReader();
   reader.onload=async e=>{
     try{
-      const lines=e.target.result.split('\n').filter(l=>l.trim());
-      const headers=lines[0].split(',').map(h=>h.replace(/"/g,'').trim().toLowerCase());
+      // Parser CSV qui gère les champs multilignes entre guillemets
+      function parseCSV(text){
+        const rows=[];let row=[];let field='';let inQuotes=false;
+        for(let i=0;i<text.length;i++){
+          const c=text[i];const next=text[i+1];
+          if(inQuotes){
+            if(c==='"'&&next==='"'){field+='"';i++;}
+            else if(c==='"'){inQuotes=false;}
+            else{field+=c;}
+          } else {
+            if(c==='"'){inQuotes=true;}
+            else if(c===','){row.push(field.trim());field='';}
+            else if(c==='\n'||(c==='\r'&&next==='\n')){
+              row.push(field.trim());rows.push(row);row=[];field='';
+              if(c==='\r')i++;
+            } else {field+=c;}
+          }
+        }
+        if(field||row.length){row.push(field.trim());rows.push(row);}
+        return rows;
+      }
+
+      const rows=parseCSV(e.target.result).filter(r=>r.some(c=>c));
+      if(rows.length<2){alert('Fichier vide ou invalide.');return;}
+      const headers=rows[0].map(h=>h.toLowerCase().replace(/[éè]/g,'e').replace(/[ê]/g,'e'));
+      const idx=h=>headers.findIndex(x=>x.includes(h));
+      const iNom=idx('nom');const iCat=idx('cat');const iTemps=idx('temp');
+      const iPorts=idx('port');const iIng=idx('ingr');const iNotes=idx('note');
+      const iSrc=idx('source');const iUrl=idx('url');
       let count=0;
-      for(let i=1;i<lines.length;i++){
-        const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||[];
-        const clean=c=>c?c.replace(/^"|"$/g,'').trim():'';
-        const row={};headers.forEach((h,idx)=>row[h]=clean(cols[idx]||''));
-        if(!row['nom']&&!row['name'])continue;
-        const name=row['nom']||row['name'];
-        if(myRecipes.find(r=>r.name.toLowerCase()===name.toLowerCase()))continue;
-        const catMap={'plat':'plat','salade':'salade','dessert':'dessert','snack':'snack','boisson':'boisson'};
-        const catRaw=(row['catégorie']||row['categorie']||row['cat']||'').toLowerCase();
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];
+        const name=iNom>=0?r[iNom]:'';
+        if(!name)continue;
+        if(myRecipes.find(x=>x.name.toLowerCase()===name.toLowerCase()))continue;
+        const catRaw=(iCat>=0?r[iCat]:'').toLowerCase();
+        const catMap={plat:'plat',salade:'salade',dessert:'dessert',snack:'snack',boisson:'boisson'};
         const cat=Object.keys(catMap).find(k=>catRaw.includes(k))||null;
-        const ingredients=(row['ingrédients']||row['ingredients']||'').split('|').map(s=>s.trim()).filter(Boolean);
+        const ingredients=(iIng>=0?r[iIng]:'').split('|').map(s=>s.trim()).filter(Boolean);
         myRecipes.unshift({
           id:'r_'+Date.now()+'_'+i,
           name,cat,
-          time:row['temps']||row['time']||'',
-          servings:row['portions']||row['servings']||'',
+          time:iTemps>=0?r[iTemps]:'',
+          servings:iPorts>=0?r[iPorts]:'',
           ingredients,
-          notes:row['notes']||row['instructions']||'',
-          emoji:null,url:row['url']||null,
-          source:row['source']||null,dishPhoto:null
+          notes:iNotes>=0?r[iNotes]:'',
+          emoji:null,
+          url:iUrl>=0?r[iUrl]||null:null,
+          source:iSrc>=0?r[iSrc]||null:null,
+          dishPhoto:null
         });
         count++;
       }
