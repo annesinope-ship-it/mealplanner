@@ -387,7 +387,7 @@
         <button class="tab-btn" onclick="switchTab('myrecipes',this)">📖 Recettes</button>
       </div>
       <div class="tab-content active" id="tab-shopping">
-        <div class="sidebar-header"><h3>Liste de courses</h3><div class="sidebar-sub" id="shopSubtitle">Générée depuis ton planning</div></div>
+        <div class="sidebar-header"><h3>Liste de courses</h3><div class="sidebar-sub" id="shopSubtitle">Semaine en cours</div></div>
         <div class="add-item-row">
           <input type="text" id="manualItem" placeholder="Ajouter un article…" onkeydown="if(event.key==='Enter')addManualItem()">
           <button class="btn-add" onclick="addManualItem()">+</button>
@@ -753,11 +753,15 @@ const INGREDIENT_CATS={
   'Autres':[],
 };
 
-let wkOffset=0,planData={},shopList=[],myRecipes=[],rbFilterActive='all',weekExtras={};
+let wkOffset=0,planData={},shopData={},myRecipes=[],rbFilterActive='all',weekExtras={};
 let currentSlot=null,selectedMeal=null,selectedCat=null,editingId=null,selectedTags=[];
 let planRecipe=null,planDay=null,planType=null,pendingShareUrl=null;
 let selectMode=false,selectedIds=new Set();
 let bulkTagsToAdd=[],bulkTagsToRemove=[],bulkCatSelected=null;
+
+// Helper : liste de courses de la semaine affichée
+function getShopList(){return shopData[wkKey(wkOffset)]||[];}
+function setShopList(list){shopData[wkKey(wkOffset)]=list;}
 
 const TAGS=['Airfryer','Four','Poêle','Végé','Rapide','Froid','Chaud','Calorique'];
 
@@ -905,14 +909,14 @@ function importPlanCSV(event){
   };
   reader.readAsText(file);event.target.value='';
 }
-function saveLocal(){try{localStorage.setItem('mp4_plan',JSON.stringify(planData));localStorage.setItem('mp4_shop',JSON.stringify(shopList));localStorage.setItem('mp4_recipes',JSON.stringify(myRecipes));localStorage.setItem('mp4_extras',JSON.stringify(weekExtras));}catch(e){}}
-function loadLocal(){try{const p=localStorage.getItem('mp4_plan');const s=localStorage.getItem('mp4_shop');const r=localStorage.getItem('mp4_recipes');const e=localStorage.getItem('mp4_extras');if(p)planData=JSON.parse(p);if(s)shopList=JSON.parse(s);if(r)myRecipes=JSON.parse(r);if(e)weekExtras=JSON.parse(e);}catch(e){}}
+function saveLocal(){try{localStorage.setItem('mp4_plan',JSON.stringify(planData));localStorage.setItem('mp4_shopdata',JSON.stringify(shopData));localStorage.setItem('mp4_recipes',JSON.stringify(myRecipes));localStorage.setItem('mp4_extras',JSON.stringify(weekExtras));}catch(e){}}
+function loadLocal(){try{const p=localStorage.getItem('mp4_plan');const s=localStorage.getItem('mp4_shopdata');const r=localStorage.getItem('mp4_recipes');const e=localStorage.getItem('mp4_extras');if(p)planData=JSON.parse(p);if(s)shopData=JSON.parse(s);if(r)myRecipes=JSON.parse(r);if(e)weekExtras=JSON.parse(e);}catch(e){}}
 
 async function saveKV(){
   try{
     await fetch('/data',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({planData,shopList,myRecipes,weekExtras})
+      body:JSON.stringify({planData,shopData,myRecipes,weekExtras})
     });
   }catch(e){console.log('KV save failed, using localStorage');}
   saveLocal();
@@ -924,7 +928,7 @@ async function loadKV(){
     if(resp.ok){
       const data=await resp.json();
       if(data.planData&&Object.keys(data.planData).length>0)planData=data.planData;
-      if(data.shopList&&data.shopList.length>0)shopList=data.shopList;
+      if(data.shopData&&Object.keys(data.shopData).length>0)shopData=data.shopData;
       if(data.myRecipes&&data.myRecipes.length>0)myRecipes=data.myRecipes;
       if(data.weekExtras)weekExtras=data.weekExtras;
       saveLocal();
@@ -1079,15 +1083,23 @@ function genShoppingList(){
   Object.values(days).forEach(dm=>{Object.entries(dm).forEach(([type,sd])=>{
     const rid=sd?.recipeId;if(rid){const r=myRecipes.find(x=>x.id===rid);if(r?.ingredients?.length){r.ingredients.forEach(i=>{if(i.trim())autoSet.add(i.trim());});return;}}
   });});
-  const manual=shopList.filter(i=>i.manual);
-  shopList=[...autoSet].map(name=>{const ex=shopList.find(i=>i.name===name&&!i.manual);return{name,checked:ex?.checked||false,manual:false,id:name};});
-  manual.forEach(m=>{if(!shopList.find(i=>i.name===m.name))shopList.push(m);});
+  const current=getShopList();
+  const manual=current.filter(i=>i.manual);
+  const newList=[...autoSet].map(name=>{const ex=current.find(i=>i.name===name&&!i.manual);return{name,checked:ex?.checked||false,manual:false,id:name};});
+  manual.forEach(m=>{if(!newList.find(i=>i.name===m.name))newList.push(m);});
+  setShopList(newList);
   renderShoppingList();
 }
+
 function renderShoppingList(){
   const cont=document.getElementById('shopCategories');const sub=document.getElementById('shopSubtitle');
+  const shopList=getShopList();
+  const wk=wkKey(wkOffset);
+  const wkStart_=wkStart(wkOffset);const wkEnd=new Date(wkStart_);wkEnd.setDate(wkEnd.getDate()+6);
+  const o={day:'numeric',month:'short'};
+  const wkStr=`${wkStart_.toLocaleDateString('fr-FR',o)} – ${wkEnd.toLocaleDateString('fr-FR',o)}`;
   const unc=shopList.filter(i=>!i.checked).length;
-  sub.textContent=shopList.length===0?'Aucun ingrédient pour cette semaine':`${unc} article${unc!==1?'s':''} restant${unc!==1?'s':''}`;
+  sub.textContent=shopList.length===0?`Semaine du ${wkStr}`:`${wkStr} · ${unc} article${unc!==1?'s':''} restant${unc!==1?'s':''}`;
   if(!shopList.length){cont.innerHTML='<div class="empty-state">Planifie des repas pour générer ta liste ✦</div>';return;}
   const grp={};shopList.forEach(i=>{const c=catOf(i.name);if(!grp[c])grp[c]=[];grp[c].push(i);});
   cont.innerHTML='';
@@ -1102,11 +1114,11 @@ function renderShoppingList(){
     });cont.appendChild(div);
   });
 }
-function toggleItem(id){const i=shopList.find(x=>(x.id||x.name)===id);if(i){i.checked=!i.checked;renderShoppingList();save();}}
-function removeItem(id){shopList=shopList.filter(x=>(x.id||x.name)!==id);renderShoppingList();save();}
-function addManualItem(){const inp=document.getElementById('manualItem');const v=inp.value.trim();if(!v)return;if(!shopList.find(i=>i.name.toLowerCase()===v.toLowerCase())){shopList.push({name:v,checked:false,manual:true,id:'m_'+Date.now()});renderShoppingList();save();}inp.value='';}
-function clearChecked(){shopList=shopList.filter(i=>!i.checked);renderShoppingList();save();}
-function printList(){const items=shopList.filter(i=>!i.checked).map(i=>`☐ ${i.name}`).join('\n');const w=window.open('','_blank');w.document.write(`<pre style="font-family:sans-serif;font-size:16px;padding:2rem">LISTE DE COURSES\n\n${items}</pre>`);w.print();}
+function toggleItem(id){const list=getShopList();const i=list.find(x=>(x.id||x.name)===id);if(i){i.checked=!i.checked;setShopList(list);renderShoppingList();save();}}
+function removeItem(id){setShopList(getShopList().filter(x=>(x.id||x.name)!==id));renderShoppingList();save();}
+function addManualItem(){const inp=document.getElementById('manualItem');const v=inp.value.trim();if(!v)return;const list=getShopList();if(!list.find(i=>i.name.toLowerCase()===v.toLowerCase())){list.push({name:v,checked:false,manual:true,id:'m_'+Date.now()});setShopList(list);renderShoppingList();save();}inp.value='';}
+function clearChecked(){setShopList(getShopList().filter(i=>!i.checked));renderShoppingList();save();}
+function printList(){const items=getShopList().filter(i=>!i.checked).map(i=>`☐ ${i.name}`).join('\n');const w=window.open('','_blank');w.document.write(`<pre style="font-family:sans-serif;font-size:16px;padding:2rem">LISTE DE COURSES\n\n${items}</pre>`);w.print();}
 
 // ── SAVED RECIPES MINI ────────────────────────────────────────────
 function renderSavedRecipesMini(){
@@ -1538,7 +1550,7 @@ function dlFile(content,filename,type){
 }
 
 function exportJSON(){
-  const data={version:1,exportedAt:new Date().toISOString(),planData,shopList,myRecipes};
+  const data={version:2,exportedAt:new Date().toISOString(),planData,shopData,myRecipes,weekExtras};
   dlFile(JSON.stringify(data,null,2),`meal-planner-backup-${new Date().toISOString().slice(0,10)}.json`,'application/json');
 }
 
@@ -1567,10 +1579,10 @@ function exportRecipesCSV(){
 }
 
 function exportShoppingCSV(){
-  const remaining=shopList.filter(i=>!i.checked);
+  const remaining=getShopList().filter(i=>!i.checked);
   let csv='Article,Catégorie,Statut\n';
   remaining.forEach(i=>csv+=`"${i.name}","${catOf(i.name)}","${i.checked?'Acheté':'À acheter'}"\n`);
-  dlFile(csv,`courses-${new Date().toISOString().slice(0,10)}.csv`,'text/csv;charset=utf-8');
+  dlFile(csv,`courses-${wkKey(wkOffset)}.csv`,'text/csv;charset=utf-8');
 }
 
 function importRecipesCSV(event){
@@ -1652,6 +1664,9 @@ function importShoppingCSV(event){
         shopList.push({name,checked:false,manual:true,id:'m_'+Date.now()+'_'+i});
         count++;
       }
+      const list=getShopList();
+      shopList.forEach(item=>{if(!list.find(i=>i.name===item.name))list.push(item);});
+      setShopList(list);
       await saveKV();renderShoppingList();
       document.getElementById('exportOverlay').classList.remove('open');
       alert(`✓ ${count} article${count>1?'s':''} ajouté${count>1?'s':''} !`);
@@ -1668,8 +1683,10 @@ function importJSON(event){
     try{
       const data=JSON.parse(e.target.result);
       if(data.planData)planData=data.planData;
-      if(data.shopList)shopList=data.shopList;
+      if(data.shopData)shopData=data.shopData;
+      else if(data.shopList)shopData[wkKey(wkOffset)]=data.shopList; // migration v1
       if(data.myRecipes)myRecipes=data.myRecipes;
+      if(data.weekExtras)weekExtras=data.weekExtras;
       await saveKV(); // save to KV + localStorage
       renderCalendar();genShoppingList();renderSavedRecipesMini();
       document.getElementById('exportOverlay').classList.remove('open');
