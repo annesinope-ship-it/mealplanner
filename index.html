@@ -273,6 +273,41 @@
 
   @media(max-width:900px){.planner-layout{grid-template-columns:1fr}.sidebar{border-left:none;border-top:1px solid var(--ink-faint)}.days-grid{grid-template-columns:repeat(4,1fr)}}
   @media(max-width:600px){.days-grid{grid-template-columns:repeat(2,1fr)}header{padding:1rem}.calendar,.recipe-book,.history-page{padding:1rem}}
+
+  /* TAGS */
+  .tags-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
+  .tag-chip{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--ink-faint);cursor:pointer;font-weight:500;transition:all 0.15s;background:var(--warm-white);color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.03em;}
+  .tag-chip.active{background:var(--ink);color:white;border-color:var(--ink);}
+  .rc-tag.tag{background:#F0F0F0;color:#555;font-size:9px;}
+
+  /* WEEK EXTRAS */
+  .week-extras{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+  .week-extra-card{background:var(--warm-white);border:1px solid var(--ink-faint);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.15s;}
+  .week-extra-card:hover{border-color:var(--ink-muted);}
+  .wec-label{font-size:9px;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-muted);font-weight:500;margin-bottom:4px;}
+  .wec-label.snack{color:var(--terracotta);}
+  .wec-label.boisson{color:var(--teal);}
+  .wec-value{font-size:12px;font-weight:500;color:var(--ink);}
+  .wec-empty{font-size:11px;color:var(--ink-faint);font-style:italic;}
+
+  /* MODAL CLOSE BUTTON */
+  .modal-close{position:absolute;top:14px;right:14px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink-muted);line-height:1;padding:4px;border-radius:50%;transition:background 0.15s;}
+  .modal-close:hover{background:var(--cream);}
+  .modal,.modal-sm,.modal-lg{position:relative;}
+
+  /* MEAL QUICK BUTTONS */
+  .meal-quick-btn{flex:1;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:8px;border:1px solid var(--ink-faint);border-radius:8px;background:var(--cream);cursor:pointer;transition:all 0.15s;color:var(--ink);}
+  .meal-quick-btn:hover{border-color:var(--ink);background:var(--warm-white);}
+  .meal-quick-btn.active{background:var(--ink);color:white;border-color:var(--ink);}
+
+  /* SPECIAL MEAL SLOTS */
+  .meal-slot.commander.filled{background:#EEF4FF;border-color:#4A90D9;border-style:solid;}
+  .meal-slot.commander .slot-type{color:#4A90D9;}
+  .meal-slot.restaurant.filled{background:#FFF3E0;border-color:#E8A84C;border-style:solid;}
+  .meal-slot.restaurant .slot-type{color:#E8A84C;}
+
+  /* WEEK EXTRA MODAL */
+  .week-extra-modal{background:var(--warm-white);border-radius:16px;padding:1.75rem;width:380px;max-width:100%;animation:mIn 0.2s ease;position:relative;max-height:90vh;overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -327,6 +362,7 @@
     <div class="calendar">
       <div class="history-bar" id="historyBar"></div>
       <div class="days-grid" id="daysGrid"></div>
+      <div class="week-extras" id="weekExtrasRow"></div>
     </div>
     <div class="sidebar">
       <div class="sidebar-tabs">
@@ -388,6 +424,7 @@
 <!-- MODAL: ADD RECIPE -->
 <div class="modal-overlay" id="addRecipeOverlay" onclick="closeAddRecipe(event)">
   <div class="modal">
+    <button class="modal-close" onclick="closeAddRecipe()">✕</button>
     <h3 id="addRecipeTitle">Nouvelle recette</h3>
     <div class="modal-sub">2 façons d'importer les infos de la recette</div>
 
@@ -459,6 +496,10 @@
         <div class="cat-chip" data-cat="boisson" onclick="selectCat('boisson',this)">🥤 Boisson</div>
       </div>
     </div>
+    <div class="modal-section">
+      <label class="modal-label">Tags</label>
+      <div class="tags-row" id="recipeTags"></div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="modal-section"><label class="modal-label">Temps de prépa</label><input type="text" class="modal-input" id="recipeTime" placeholder="30 min"></div>
       <div class="modal-section"><label class="modal-label">Portions</label><input type="text" class="modal-input" id="recipeServings" placeholder="4 personnes"></div>
@@ -489,8 +530,15 @@
 <!-- MODAL: ADD MEAL TO SLOT -->
 <div class="modal-overlay" id="mealOverlay" onclick="closeMealOverlay(event)">
   <div class="modal-sm">
+    <button class="modal-close" onclick="closeMealOverlay()">✕</button>
     <h3 id="mealModalTitle">Ajouter un repas</h3>
     <div class="modal-sub" id="mealModalSub"></div>
+    <div class="modal-section">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="meal-quick-btn" onclick="setQuickMeal('🛵 Commander')">🛵 Commander</button>
+        <button class="meal-quick-btn" onclick="setQuickMeal('🍽️ Restaurant')">🍽️ Restaurant</button>
+      </div>
+    </div>
     <div class="modal-section">
       <label class="modal-label">Mes recettes sauvegardées</label>
       <input type="text" class="modal-search" id="recipeSearchInModal" placeholder="Rechercher…" oninput="filterModalRecipes()">
@@ -510,6 +558,7 @@
 <!-- MODAL: PLAN FROM RECIPE -->
 <div class="modal-overlay" id="planOverlay" onclick="closePlanOverlay(event)">
   <div class="modal-sm">
+    <button class="modal-close" onclick="closePlanOverlay()">✕</button>
     <h3 id="planTitle">Planifier</h3>
     <div class="modal-sub" id="planSub"></div>
     <label class="modal-label" style="display:block;margin-bottom:6px">Jour</label>
@@ -531,6 +580,7 @@
 <!-- MODAL: EXPORT -->
 <div class="modal-overlay" id="exportOverlay" onclick="closeExportModal(event)">
   <div class="modal-sm">
+    <button class="modal-close" onclick="closeExportModal()">✕</button>
     <h3>Exporter mes données</h3>
     <div class="modal-sub">Sauvegarde tout au cas où — planning, recettes, liste de courses.</div>
     <div class="export-options">
@@ -586,9 +636,38 @@
         <button class="btn-export secondary" onclick="document.getElementById('importShoppingFile').click()">Importer</button>
         <input type="file" id="importShoppingFile" accept=".csv" style="display:none" onchange="importShoppingCSV(event)">
       </div>
+      <div class="export-opt">
+        <div>
+          <div class="export-opt-info">📅 Importer un planning (CSV)</div>
+          <div class="export-opt-desc">Importer des menus planifiés depuis un CSV</div>
+        </div>
+        <button class="btn-export secondary" onclick="document.getElementById('importPlanFile').click()">Importer</button>
+        <input type="file" id="importPlanFile" accept=".csv" style="display:none" onchange="importPlanCSV(event)">
+      </div>
     </div>
     <div class="modal-footer" style="margin-top:0">
       <button class="btn-cancel" style="flex:1" onclick="closeExportModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: WEEK EXTRA (snack / boisson) -->
+<div class="modal-overlay" id="weekExtraOverlay" onclick="closeWeekExtra(event)">
+  <div class="week-extra-modal">
+    <button class="modal-close" onclick="closeWeekExtra()">✕</button>
+    <h3 id="weekExtraTitle">Snack de la semaine</h3>
+    <div class="modal-sub" id="weekExtraSub"></div>
+    <div class="modal-section">
+      <label class="modal-label">Depuis mes recettes</label>
+      <div class="modal-meals-list" id="weekExtraRecipes"></div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Ou saisir librement</label>
+      <input type="text" class="modal-input" id="weekExtraInput" placeholder="Ex: Houmous & crudités…" onkeydown="if(event.key==='Enter')confirmWeekExtra()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeWeekExtra()">Annuler</button>
+      <button class="btn-confirm" onclick="confirmWeekExtra()">Sauvegarder →</button>
     </div>
   </div>
 </div>
@@ -607,20 +686,137 @@ const INGREDIENT_CATS={
   'Autres':[],
 };
 
-let wkOffset=0,planData={},shopList=[],myRecipes=[],rbFilterActive='all';
-let currentSlot=null,selectedMeal=null,selectedCat=null,editingId=null;
+let wkOffset=0,planData={},shopList=[],myRecipes=[],rbFilterActive='all',weekExtras={};
+let currentSlot=null,selectedMeal=null,selectedCat=null,editingId=null,selectedTags=[];
 let planRecipe=null,planDay=null,planType=null,pendingShareUrl=null;
 
+const TAGS=['Airfryer','Four','Poêle','Végé','Rapide','Froid','Chaud','Calorique'];
+
 // ── PERSIST ──────────────────────────────────────────────────────
-// ── PERSIST (KV + localStorage fallback) ─────────────────────────
-function saveLocal(){try{localStorage.setItem('mp4_plan',JSON.stringify(planData));localStorage.setItem('mp4_shop',JSON.stringify(shopList));localStorage.setItem('mp4_recipes',JSON.stringify(myRecipes));}catch(e){}}
-function loadLocal(){try{const p=localStorage.getItem('mp4_plan');const s=localStorage.getItem('mp4_shop');const r=localStorage.getItem('mp4_recipes');if(p)planData=JSON.parse(p);if(s)shopList=JSON.parse(s);if(r)myRecipes=JSON.parse(r);}catch(e){}}
+// ── WEEK EXTRAS (snack + boisson) ────────────────────────────────
+let currentExtraKey=null;
+
+function renderWeekExtras(){
+  const wk=wkKey(wkOffset);
+  const extras=weekExtras[wk]||{};
+  const row=document.getElementById('weekExtrasRow');
+  row.innerHTML=`
+    <div class="week-extra-card" onclick="openWeekExtra('snack')">
+      <div class="wec-label snack">🥨 Snack de la semaine</div>
+      ${extras.snack?`<div class="wec-value">${extras.snack}</div>`:'<div class="wec-empty">+ Ajouter un snack</div>'}
+    </div>
+    <div class="week-extra-card" onclick="openWeekExtra('boisson')">
+      <div class="wec-label boisson">🥤 Boisson de la semaine</div>
+      ${extras.boisson?`<div class="wec-value">${extras.boisson}</div>`:'<div class="wec-empty">+ Ajouter une boisson</div>'}
+    </div>`;
+}
+
+function setQuickMeal(name){
+  document.getElementById('modalCustom').value=name;
+  document.querySelectorAll('.meal-quick-btn').forEach(b=>b.classList.toggle('active',b.textContent===name));
+}
+
+function openWeekExtra(type){
+  currentExtraKey=type;
+  const wk=wkKey(wkOffset);
+  const val=(weekExtras[wk]||{})[type]||'';
+  document.getElementById('weekExtraTitle').textContent=type==='snack'?'🥨 Snack de la semaine':'🥤 Boisson de la semaine';
+  document.getElementById('weekExtraSub').textContent=wkLabel(wkOffset);
+  document.getElementById('weekExtraInput').value=val;
+  // Charger les recettes filtrées par catégorie
+  const list=document.getElementById('weekExtraRecipes');list.innerHTML='';
+  const filtered=myRecipes.filter(r=>r.cat===type);
+  if(!filtered.length){list.innerHTML='<div style="font-size:11px;color:var(--ink-faint);font-style:italic;padding:6px 0">Aucune recette de type '+CAT_LABELS[type]+'</div>';}
+  else{
+    filtered.forEach(r=>{
+      const o=document.createElement('div');o.className='modal-meal-opt';
+      o.innerHTML=`<span>${r.emoji||CAT_EMOJI[r.cat]||''} ${r.name}</span>`;
+      o.addEventListener('click',()=>{
+        document.getElementById('weekExtraInput').value=r.name;
+        document.querySelectorAll('#weekExtraRecipes .modal-meal-opt').forEach(x=>x.classList.remove('selected'));
+        o.classList.add('selected');
+      });
+      list.appendChild(o);
+    });
+  }
+  document.getElementById('weekExtraOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('weekExtraInput').focus(),100);
+}
+function closeWeekExtra(e){if(e&&e.target!==document.getElementById('weekExtraOverlay'))return;document.getElementById('weekExtraOverlay').classList.remove('open');}
+function confirmWeekExtra(){
+  const wk=wkKey(wkOffset);
+  if(!weekExtras[wk])weekExtras[wk]={};
+  weekExtras[wk][currentExtraKey]=document.getElementById('weekExtraInput').value.trim();
+  document.getElementById('weekExtraOverlay').classList.remove('open');
+  renderWeekExtras();save();
+}
+
+// ── TAGS ─────────────────────────────────────────────────────────
+function renderTagChips(containerId,activeTags){
+  const cont=document.getElementById(containerId);if(!cont)return;
+  cont.innerHTML='';
+  TAGS.forEach(tag=>{
+    const btn=document.createElement('button');
+    btn.type='button';btn.className='tag-chip'+(activeTags.includes(tag)?' active':'');
+    btn.textContent=tag;
+    btn.addEventListener('click',()=>{
+      const idx=selectedTags.indexOf(tag);
+      if(idx>=0)selectedTags.splice(idx,1);else selectedTags.push(tag);
+      renderTagChips(containerId,selectedTags);
+    });
+    cont.appendChild(btn);
+  });
+}
+
+// ── IMPORT PLANNING CSV ───────────────────────────────────────────
+function importPlanCSV(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      function parseCSV(text){
+        const rows=[];let row=[];let field='';let inQ=false;
+        for(let i=0;i<text.length;i++){
+          const c=text[i];const nx=text[i+1];
+          if(inQ){if(c==='"'&&nx==='"'){field+='"';i++;}else if(c==='"'){inQ=false;}else{field+=c;}}
+          else{if(c==='"'){inQ=true;}else if(c===','){row.push(field.trim());field='';}else if(c==='\n'||(c==='\r'&&nx==='\n')){row.push(field.trim());rows.push(row);row=[];field='';if(c==='\r')i++;}else{field+=c;}}
+        }
+        if(field||row.length){row.push(field.trim());rows.push(row);}
+        return rows;
+      }
+      const rows=parseCSV(e.target.result).filter(r=>r.some(c=>c));
+      if(rows.length<2){alert('Fichier vide.');return;}
+      const headers=rows[0].map(h=>h.toLowerCase().replace(/[éè]/g,'e').replace(/ê/g,'e').replace(/[îï]/g,'i'));
+      const iJour=headers.findIndex(h=>h.includes('jour'));
+      const iDej=headers.findIndex(h=>h.includes('dej'));
+      const iDin=headers.findIndex(h=>h.includes('din'));
+      const DAY_MAP={'lun':0,'mar':1,'mer':2,'jeu':3,'ven':4,'sam':5,'dim':6,'lundi':0,'mardi':1,'mercredi':2,'jeudi':3,'vendredi':4,'samedi':5,'dimanche':6};
+      const wk=wkKey(wkOffset);if(!planData[wk])planData[wk]={};
+      let count=0;
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];
+        const jourRaw=(iJour>=0?r[iJour]:'').toLowerCase().trim();
+        const di=DAY_MAP[jourRaw]??DAY_MAP[jourRaw.slice(0,3)];
+        if(di===undefined)continue;
+        if(!planData[wk][di])planData[wk][di]={};
+        if(iDej>=0&&r[iDej]){planData[wk][di].dejeuner={name:r[iDej]};count++;}
+        if(iDin>=0&&r[iDin]){planData[wk][di].diner={name:r[iDin]};count++;}
+      }
+      await saveKV();renderCalendar();genShoppingList();
+      document.getElementById('exportOverlay').classList.remove('open');
+      alert(`✓ ${count} repas importé${count>1?'s':''} !`);
+    }catch(err){alert('Erreur : '+err.message);}
+  };
+  reader.readAsText(file);event.target.value='';
+}
+function saveLocal(){try{localStorage.setItem('mp4_plan',JSON.stringify(planData));localStorage.setItem('mp4_shop',JSON.stringify(shopList));localStorage.setItem('mp4_recipes',JSON.stringify(myRecipes));localStorage.setItem('mp4_extras',JSON.stringify(weekExtras));}catch(e){}}
+function loadLocal(){try{const p=localStorage.getItem('mp4_plan');const s=localStorage.getItem('mp4_shop');const r=localStorage.getItem('mp4_recipes');const e=localStorage.getItem('mp4_extras');if(p)planData=JSON.parse(p);if(s)shopList=JSON.parse(s);if(r)myRecipes=JSON.parse(r);if(e)weekExtras=JSON.parse(e);}catch(e){}}
 
 async function saveKV(){
   try{
     await fetch('/data',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({planData,shopList,myRecipes})
+      body:JSON.stringify({planData,shopList,myRecipes,weekExtras})
     });
   }catch(e){console.log('KV save failed, using localStorage');}
   saveLocal();
@@ -634,7 +830,8 @@ async function loadKV(){
       if(data.planData&&Object.keys(data.planData).length>0)planData=data.planData;
       if(data.shopList&&data.shopList.length>0)shopList=data.shopList;
       if(data.myRecipes&&data.myRecipes.length>0)myRecipes=data.myRecipes;
-      saveLocal(); // sync to localStorage too
+      if(data.weekExtras)weekExtras=data.weekExtras;
+      saveLocal();
       return;
     }
   }catch(e){console.log('KV load failed, using localStorage');}
@@ -724,6 +921,7 @@ function renderHistoryBar(){
 function renderCalendar(){
   document.getElementById('weekLabel').textContent=wkLabel(wkOffset);
   renderHistoryBar();
+  renderWeekExtras();
   const grid=document.getElementById('daysGrid');grid.innerHTML='';
   const wk=wkKey(wkOffset);if(!planData[wk])planData[wk]={};
   DAYS.forEach((day,di)=>{
@@ -734,7 +932,10 @@ function renderCalendar(){
     MEAL_TYPES.forEach(type=>{
       const sd=(planData[wk][di]||{})[type]||null;
       const meal=sd?.name||sd||null;const rid=sd?.recipeId||null;
-      const slot=document.createElement('div');slot.className=`meal-slot ${type}${meal?' filled':''}`;
+      const isCommander=meal&&meal.includes('Commander');
+      const isRestaurant=meal&&meal.includes('Restaurant');
+      const specialClass=isCommander?' commander':isRestaurant?' restaurant':'';
+      const slot=document.createElement('div');slot.className=`meal-slot ${type}${meal?' filled':''}${specialClass}`;
       let catHtml='',srcHtml='';
       if(rid){const r=myRecipes.find(x=>x.id===rid);if(r?.cat)catHtml=`<div class="slot-cat">${CAT_EMOJI[r.cat]||''} ${CAT_LABELS[r.cat]||r.cat}</div>`;if(r?.source)srcHtml=`<div class="slot-src">🔗 ${r.source}</div>`;}
       slot.innerHTML=`<div class="slot-type">${MEAL_LABELS[type]}</div>${meal?`<div class="slot-meal">${meal}</div>${catHtml}${srcHtml}<button class="slot-del" onclick="delMeal(event,${di},'${type}')">✕</button>`:`<div class="slot-empty">+ Ajouter</div>`}`;
@@ -852,6 +1053,8 @@ function renderHistory(){
   cont.appendChild(div);
 }
 
+function tryGetHostname(url){try{return new URL(url).hostname.replace('www.','');}catch(e){return null;}}
+
 // ── RECIPE BOOK ───────────────────────────────────────────────────
 function rbSetFilter(f,btn){rbFilterActive=f;document.querySelectorAll('.rb-filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderRecipeBook();}
 function renderRecipeBook(){
@@ -866,8 +1069,9 @@ function renderRecipeBook(){
     const tag=r.cat?`<span class="rc-tag ${r.cat}">${CAT_EMOJI[r.cat]||''} ${CAT_LABELS[r.cat]||r.cat}</span>`:'';
     const badge=r.source?`<span class="rc-source-badge">🔗 ${r.source}</span>`:'';
     const thumbContent=r.dishPhoto?`<img src="${r.dishPhoto}" style="width:100%;height:100%;object-fit:cover">`:`<span>${r.emoji||CAT_EMOJI[r.cat]||'🍽️'}</span>`;
+    const tagsHtml=r.tags?.length?r.tags.map(t=>`<span class="rc-tag tag">${t}</span>`).join(''):'';
     card.innerHTML=`<div class="rc-thumb">${thumbContent}${badge}</div>
-      <div class="rc-body"><div class="rc-tags">${tag}</div><div class="rc-title">${r.name}</div><div class="rc-meta">${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''}</div></div>
+      <div class="rc-body"><div class="rc-tags">${tag}${tagsHtml}</div><div class="rc-title">${r.name}</div><div class="rc-meta">${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''}</div></div>
       <div class="rc-footer"><button class="rc-btn rc-btn-plan" onclick="quickPlan(event,'${r.id}')">Planifier</button><button class="rc-btn rc-btn-del" onclick="delRecipe(event,'${r.id}')">Supprimer</button></div>`;
     card.addEventListener('click',e=>{if(e.target.classList.contains('rc-btn'))return;openDetail(r.id);});
     g.appendChild(card);
@@ -889,6 +1093,8 @@ function openAddRecipe(id=null){
   document.getElementById('urlStatus').textContent='';document.getElementById('urlStatus').className='url-status';
   document.querySelectorAll('.cat-chip').forEach(c=>c.className='cat-chip');
   if(r?.cat){selectedCat=r.cat;const el=document.querySelector(`.cat-chip[data-cat="${r.cat}"]`);if(el)el.className=`cat-chip active ${r.cat}`;}
+  selectedTags=r?.tags?[...r.tags]:[];
+  renderTagChips('recipeTags',selectedTags);
   // reset dish photo
   dishPhotoBase64=r?.dishPhoto||null;
   if(dishPhotoBase64){document.getElementById('dishPhotoImg').src=dishPhotoBase64;document.getElementById('dishPhotoPreview').style.display='block';document.getElementById('dishPhotoPlaceholder').style.display='none';}
@@ -1048,7 +1254,7 @@ async function fetchFromPhoto(){
 
 function saveRecipe(){
   const name=document.getElementById('recipeName').value.trim();if(!name){document.getElementById('recipeName').focus();return;}
-  const r={id:editingId||'r_'+Date.now(),name,cat:selectedCat||null,time:document.getElementById('recipeTime').value.trim(),servings:document.getElementById('recipeServings').value.trim(),ingredients:document.getElementById('recipeIngredients').value.split('\n').map(s=>s.trim()).filter(Boolean),notes:document.getElementById('recipeNotes').value.trim(),emoji:document.getElementById('recipeEmoji').value.trim()||null,url:document.getElementById('recipeUrl').value.trim()||null,source:document.getElementById('recipeUrl').value.trim()?new URL(document.getElementById('recipeUrl').value.trim()).hostname.replace('www.',''):null,dishPhoto:dishPhotoBase64||null};
+  const r={id:editingId||'r_'+Date.now(),name,cat:selectedCat||null,tags:selectedTags.length?[...selectedTags]:[],time:document.getElementById('recipeTime').value.trim(),servings:document.getElementById('recipeServings').value.trim(),ingredients:document.getElementById('recipeIngredients').value.split('\n').map(s=>s.trim()).filter(Boolean),notes:document.getElementById('recipeNotes').value.trim(),emoji:document.getElementById('recipeEmoji').value.trim()||null,url:document.getElementById('recipeUrl').value.trim()||null,source:document.getElementById('recipeUrl').value.trim()?tryGetHostname(document.getElementById('recipeUrl').value.trim()):null,dishPhoto:dishPhotoBase64||null};
   if(editingId)myRecipes=myRecipes.map(x=>x.id===editingId?r:x);else myRecipes.unshift(r);
   save();document.getElementById('addRecipeOverlay').classList.remove('open');renderRecipeBook();renderSavedRecipesMini();
 }
@@ -1059,11 +1265,12 @@ function openDetail(id){
   const r=myRecipes.find(x=>x.id===id);if(!r)return;
   const heroContent=r.dishPhoto?`<img src="${r.dishPhoto}" style="width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0">`:(r.emoji||CAT_EMOJI[r.cat]||'🍽️');
   const tag=r.cat?`<span class="rc-tag ${r.cat}" style="font-size:10px;padding:2px 9px">${CAT_EMOJI[r.cat]||''} ${CAT_LABELS[r.cat]||r.cat}</span>`:'';
+  const tagsDetail=r.tags?.length?r.tags.map(t=>`<span class="rc-tag tag">${t}</span>`).join(''):'';
   const link=r.url?`<a href="${r.url}" target="_blank" class="rdm-link">Voir la source →</a>`:'';
   const ing=r.ingredients?.length?`<p class="rdm-section-title">Ingrédients</p><ul class="rdm-ingredients">${r.ingredients.map(i=>`<li>${i}</li>`).join('')}</ul>`:'';
   const notes=r.notes?`<p class="rdm-section-title">Instructions</p><div class="rdm-notes">${r.notes}</div>`:'';
   document.getElementById('detailContent').innerHTML=`<div class="rdm-hero">${heroContent}</div>
-    <div class="rdm-body"><div class="rdm-title">${r.name}</div><div class="rdm-meta">${tag} ${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''} ${link}</div>${ing}${notes}</div>
+    <div class="rdm-body"><div class="rdm-title">${r.name}</div><div class="rdm-meta">${tag}${tagsDetail} ${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''} ${link}</div>${ing}${notes}</div>
     <div class="rdm-footer"><button class="rdm-btn rdm-btn-plan" onclick="quickPlan(event,'${r.id}')">Planifier</button><button class="rdm-btn" style="background:var(--gold-light);color:var(--gold);border:1px solid var(--gold);flex:1" onclick="closeDetail();openAddRecipe('${r.id}')">✏️ Modifier</button><button class="rdm-btn rdm-btn-close" style="flex:0.7" onclick="closeDetail()">Fermer</button></div>`;
   document.getElementById('detailOverlay').classList.add('open');
 }
