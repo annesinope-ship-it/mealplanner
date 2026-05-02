@@ -295,7 +295,24 @@
   .modal-close:hover{background:var(--cream);}
   .modal,.modal-sm,.modal-lg{position:relative;}
 
-  /* MEAL QUICK BUTTONS */
+  /* SELECTION MODE */
+  .btn-select-mode{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;padding:5px 12px;border-radius:20px;border:1px solid var(--ink-faint);background:var(--warm-white);color:var(--ink-muted);cursor:pointer;transition:all 0.15s;}
+  .btn-select-mode.active{background:var(--sage);color:white;border-color:var(--sage);}
+  .bulk-action-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 0;margin-bottom:12px;border-bottom:1px solid var(--ink-faint);flex-wrap:wrap;gap:8px;}
+  .bulk-action-bar span{font-size:13px;font-weight:500;color:var(--ink);}
+  .bulk-btn{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;padding:6px 12px;border-radius:20px;border:1px solid var(--ink-faint);background:var(--warm-white);cursor:pointer;transition:all 0.15s;color:var(--ink);}
+  .bulk-btn:hover{border-color:var(--sage);color:var(--sage);}
+  .bulk-btn.danger{color:var(--terracotta);border-color:var(--terracotta);}
+  .bulk-btn.danger:hover{background:var(--terracotta-light);}
+  .recipe-card-full.selectable{cursor:pointer;}
+  .recipe-card-full.selectable:hover{border-color:var(--sage);}
+  .recipe-card-full.selected{border-color:var(--sage);border-width:2px;box-shadow:0 0 0 2px var(--sage-light);}
+  .rc-checkbox{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;background:white;border:2px solid var(--ink-faint);display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.15s;z-index:2;}
+  .recipe-card-full.selected .rc-checkbox{background:var(--sage);border-color:var(--sage);color:white;}
+
+  /* BULK TAG REMOVE */
+  .tag-chip.remove{border-color:var(--terracotta);color:var(--terracotta);}
+  .tag-chip.remove.active{background:var(--terracotta);color:white;border-color:var(--terracotta);}
   .meal-quick-btn{flex:1;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:8px;border:1px solid var(--ink-faint);border-radius:8px;background:var(--cream);cursor:pointer;transition:all 0.15s;color:var(--ink);}
   .meal-quick-btn:hover{border-color:var(--ink);background:var(--warm-white);}
   .meal-quick-btn.active{background:var(--ink);color:white;border-color:var(--ink);}
@@ -406,7 +423,19 @@
         <button class="rb-filter" onclick="rbSetFilter('dessert',this)">Dessert</button>
         <button class="rb-filter" onclick="rbSetFilter('snack',this)">Snack</button>
         <button class="rb-filter" onclick="rbSetFilter('boisson',this)">Boisson</button>
+        <button class="btn-select-mode" id="btnSelectMode" onclick="toggleSelectMode()">☑ Sélectionner</button>
         <button class="btn-add-recipe" onclick="openAddRecipe()">+ Ajouter</button>
+      </div>
+    </div>
+    <!-- BARRE D'ACTIONS GROUPÉES -->
+    <div class="bulk-action-bar" id="bulkActionBar" style="display:none">
+      <span id="bulkCount">0 recette sélectionnée</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="bulk-btn" onclick="bulkSelectAll()">Tout sélectionner</button>
+        <button class="bulk-btn" onclick="openBulkTags()">🏷️ Tags</button>
+        <button class="bulk-btn" onclick="openBulkCat()">📂 Catégorie</button>
+        <button class="bulk-btn danger" onclick="bulkDelete()">🗑️ Supprimer</button>
+        <button class="bulk-btn" onclick="toggleSelectMode()">Annuler</button>
       </div>
     </div>
     <div id="recipesGrid"></div>
@@ -672,6 +701,44 @@
   </div>
 </div>
 
+<!-- MODAL: BULK TAGS -->
+<div class="modal-overlay" id="bulkTagsOverlay" onclick="closeBulkTags(event)">
+  <div class="modal-sm">
+    <button class="modal-close" onclick="closeBulkTags()">✕</button>
+    <h3>Modifier les tags</h3>
+    <div class="modal-sub" id="bulkTagsSub"></div>
+    <div class="modal-section">
+      <label class="modal-label">Ajouter ces tags aux recettes sélectionnées</label>
+      <div class="tags-row" id="bulkTagsAdd"></div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Retirer ces tags</label>
+      <div class="tags-row" id="bulkTagsRemove"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeBulkTags()">Annuler</button>
+      <button class="btn-confirm" onclick="confirmBulkTags()">Appliquer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BULK CATEGORY -->
+<div class="modal-overlay" id="bulkCatOverlay" onclick="closeBulkCat(event)">
+  <div class="modal-sm">
+    <button class="modal-close" onclick="closeBulkCat()">✕</button>
+    <h3>Changer la catégorie</h3>
+    <div class="modal-sub" id="bulkCatSub"></div>
+    <div class="modal-section">
+      <label class="modal-label">Nouvelle catégorie</label>
+      <div class="cat-chips" id="bulkCatChips"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeBulkCat()">Annuler</button>
+      <button class="btn-confirm" onclick="confirmBulkCat()">Appliquer →</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const DAYS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 const MEAL_TYPES=['dejeuner','diner'];
@@ -689,6 +756,8 @@ const INGREDIENT_CATS={
 let wkOffset=0,planData={},shopList=[],myRecipes=[],rbFilterActive='all',weekExtras={};
 let currentSlot=null,selectedMeal=null,selectedCat=null,editingId=null,selectedTags=[];
 let planRecipe=null,planDay=null,planType=null,pendingShareUrl=null;
+let selectMode=false,selectedIds=new Set();
+let bulkTagsToAdd=[],bulkTagsToRemove=[],bulkCatSelected=null;
 
 const TAGS=['Airfryer','Four','Poêle','Végé','Rapide','Froid','Chaud','Calorique'];
 
@@ -1082,6 +1151,118 @@ function renderHistory(){
 
 function tryGetHostname(url){try{return new URL(url).hostname.replace('www.','');}catch(e){return null;}}
 
+// ── SELECTION MODE ────────────────────────────────────────────────
+function toggleSelectMode(){
+  selectMode=!selectMode;
+  selectedIds.clear();
+  const btn=document.getElementById('btnSelectMode');
+  btn.classList.toggle('active',selectMode);
+  btn.textContent=selectMode?'✕ Annuler':'☑ Sélectionner';
+  document.getElementById('bulkActionBar').style.display=selectMode?'flex':'none';
+  updateBulkCount();
+  renderRecipeBook();
+}
+
+function toggleSelectCard(id){
+  if(selectedIds.has(id))selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateBulkCount();
+  // Update card visual without full re-render
+  const card=document.querySelector(`[data-recipe-id="${id}"]`);
+  if(card){
+    card.classList.toggle('selected',selectedIds.has(id));
+    const cb=card.querySelector('.rc-checkbox');
+    if(cb)cb.textContent=selectedIds.has(id)?'✓':'';
+  }
+}
+
+function bulkSelectAll(){
+  const q=(document.getElementById('rbSearch')?.value||'').toLowerCase();
+  const visible=myRecipes.filter(r=>(rbFilterActive==='all'||r.cat===rbFilterActive)&&(!q||r.name.toLowerCase().includes(q)));
+  if(selectedIds.size===visible.length){selectedIds.clear();}
+  else{visible.forEach(r=>selectedIds.add(r.id));}
+  updateBulkCount();renderRecipeBook();
+}
+
+function updateBulkCount(){
+  const n=selectedIds.size;
+  document.getElementById('bulkCount').textContent=`${n} recette${n>1?'s':''} sélectionnée${n>1?'s':''}`;
+}
+
+// BULK TAGS
+function openBulkTags(){
+  if(!selectedIds.size){alert('Sélectionne au moins une recette.');return;}
+  document.getElementById('bulkTagsSub').textContent=`${selectedIds.size} recette${selectedIds.size>1?'s':''} sélectionnée${selectedIds.size>1?'s':''}`;
+  bulkTagsToAdd=[];bulkTagsToRemove=[];
+  renderBulkTagChips('bulkTagsAdd','add');
+  renderBulkTagChips('bulkTagsRemove','remove');
+  document.getElementById('bulkTagsOverlay').classList.add('open');
+}
+function closeBulkTags(e){if(e&&e.target!==document.getElementById('bulkTagsOverlay'))return;document.getElementById('bulkTagsOverlay').classList.remove('open');}
+
+function renderBulkTagChips(containerId,mode){
+  const cont=document.getElementById(containerId);cont.innerHTML='';
+  const arr=mode==='add'?bulkTagsToAdd:bulkTagsToRemove;
+  TAGS.forEach(tag=>{
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='tag-chip'+(mode==='remove'?' remove':'')+(arr.includes(tag)?' active':'');
+    btn.textContent=tag;
+    btn.addEventListener('click',()=>{
+      const idx=arr.indexOf(tag);if(idx>=0)arr.splice(idx,1);else arr.push(tag);
+      renderBulkTagChips(containerId,mode);
+    });
+    cont.appendChild(btn);
+  });
+}
+
+function confirmBulkTags(){
+  myRecipes.forEach(r=>{
+    if(!selectedIds.has(r.id))return;
+    if(!r.tags)r.tags=[];
+    bulkTagsToAdd.forEach(t=>{if(!r.tags.includes(t))r.tags.push(t);});
+    bulkTagsToRemove.forEach(t=>{r.tags=r.tags.filter(x=>x!==t);});
+  });
+  save();renderRecipeBook();
+  document.getElementById('bulkTagsOverlay').classList.remove('open');
+  alert(`✓ Tags mis à jour sur ${selectedIds.size} recette${selectedIds.size>1?'s':''} !`);
+}
+
+// BULK CATEGORY
+function openBulkCat(){
+  if(!selectedIds.size){alert('Sélectionne au moins une recette.');return;}
+  document.getElementById('bulkCatSub').textContent=`${selectedIds.size} recette${selectedIds.size>1?'s':''} sélectionnée${selectedIds.size>1?'s':''}`;
+  bulkCatSelected=null;
+  const cont=document.getElementById('bulkCatChips');cont.innerHTML='';
+  Object.entries(CAT_LABELS).forEach(([cat,label])=>{
+    const el=document.createElement('div');el.className='cat-chip';el.textContent=`${CAT_EMOJI[cat]} ${label}`;
+    el.addEventListener('click',()=>{
+      bulkCatSelected=cat;
+      document.querySelectorAll('#bulkCatChips .cat-chip').forEach(c=>c.className='cat-chip');
+      el.className=`cat-chip active ${cat}`;
+    });
+    cont.appendChild(el);
+  });
+  document.getElementById('bulkCatOverlay').classList.add('open');
+}
+function closeBulkCat(e){if(e&&e.target!==document.getElementById('bulkCatOverlay'))return;document.getElementById('bulkCatOverlay').classList.remove('open');}
+function confirmBulkCat(){
+  if(!bulkCatSelected){alert('Choisis une catégorie.');return;}
+  myRecipes.forEach(r=>{if(selectedIds.has(r.id))r.cat=bulkCatSelected;});
+  save();renderRecipeBook();
+  document.getElementById('bulkCatOverlay').classList.remove('open');
+  alert(`✓ Catégorie mise à jour sur ${selectedIds.size} recette${selectedIds.size>1?'s':''} !`);
+}
+
+// BULK DELETE
+function bulkDelete(){
+  if(!selectedIds.size){alert('Sélectionne au moins une recette.');return;}
+  if(!confirm(`Supprimer ${selectedIds.size} recette${selectedIds.size>1?'s':''} ?`))return;
+  myRecipes=myRecipes.filter(r=>!selectedIds.has(r.id));
+  selectedIds.clear();updateBulkCount();
+  save();renderRecipeBook();renderSavedRecipesMini();
+}
+
 // ── RECIPE BOOK ───────────────────────────────────────────────────
 function rbSetFilter(f,btn){rbFilterActive=f;document.querySelectorAll('.rb-filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderRecipeBook();}
 function renderRecipeBook(){
@@ -1097,10 +1278,22 @@ function renderRecipeBook(){
     const badge=r.source?`<span class="rc-source-badge">🔗 ${r.source}</span>`:'';
     const thumbContent=r.dishPhoto?`<img src="${r.dishPhoto}" style="width:100%;height:100%;object-fit:cover">`:`<span>${r.emoji||CAT_EMOJI[r.cat]||'🍽️'}</span>`;
     const tagsHtml=r.tags?.length?r.tags.map(t=>`<span class="rc-tag tag">${t}</span>`).join(''):'';
-    card.innerHTML=`<div class="rc-thumb">${thumbContent}${badge}</div>
-      <div class="rc-body"><div class="rc-tags">${tag}${tagsHtml}</div><div class="rc-title">${r.name}</div><div class="rc-meta">${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''}</div></div>
-      <div class="rc-footer"><button class="rc-btn rc-btn-plan" onclick="quickPlan(event,'${r.id}')">Planifier</button><button class="rc-btn rc-btn-del" onclick="delRecipe(event,'${r.id}')">Supprimer</button></div>`;
-    card.addEventListener('click',e=>{if(e.target.classList.contains('rc-btn'))return;openDetail(r.id);});
+    const checkboxHtml=selectMode?`<div class="rc-checkbox">${selectedIds.has(r.id)?'✓':''}</div>`:'';
+    card.setAttribute('data-recipe-id',r.id);
+    if(selectMode){
+      card.className='recipe-card-full selectable'+(selectedIds.has(r.id)?' selected':'');
+      card.style.position='relative';
+      card.innerHTML=`${checkboxHtml}<div class="rc-thumb">${thumbContent}${badge}</div>
+        <div class="rc-body"><div class="rc-tags">${tag}${tagsHtml}</div><div class="rc-title">${r.name}</div><div class="rc-meta">${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''}</div></div>`;
+      card.addEventListener('click',()=>toggleSelectCard(r.id));
+    } else {
+      card.className='recipe-card-full';
+      card.style.position='relative';
+      card.innerHTML=`<div class="rc-thumb">${thumbContent}${badge}</div>
+        <div class="rc-body"><div class="rc-tags">${tag}${tagsHtml}</div><div class="rc-title">${r.name}</div><div class="rc-meta">${r.time?`⏱ ${r.time}`:''} ${r.servings?`· 👥 ${r.servings}`:''}</div></div>
+        <div class="rc-footer"><button class="rc-btn rc-btn-plan" onclick="quickPlan(event,'${r.id}')">Planifier</button><button class="rc-btn rc-btn-del" onclick="delRecipe(event,'${r.id}')">Supprimer</button></div>`;
+      card.addEventListener('click',e=>{if(e.target.classList.contains('rc-btn'))return;openDetail(r.id);});
+    }
     g.appendChild(card);
   });grid.appendChild(g);
 }
