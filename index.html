@@ -769,6 +769,23 @@ function renderTagChips(containerId,activeTags){
 }
 
 // ── IMPORT PLANNING CSV ───────────────────────────────────────────
+function findRecipeByName(name){
+  if(!name)return null;
+  const n=name.toLowerCase().trim();
+  // Correspondance exacte d'abord
+  let r=myRecipes.find(x=>x.name.toLowerCase()===n);
+  if(r)return r;
+  // Correspondance partielle — le nom du CSV est contenu dans le nom de la recette ou vice versa
+  r=myRecipes.find(x=>x.name.toLowerCase().includes(n)||n.includes(x.name.toLowerCase()));
+  return r||null;
+}
+
+function makeMealSlot(name){
+  const r=findRecipeByName(name);
+  if(r)return{name:r.name,recipeId:r.id};
+  return{name};
+}
+
 function importPlanCSV(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -792,19 +809,29 @@ function importPlanCSV(event){
       const iDin=headers.findIndex(h=>h.includes('din'));
       const DAY_MAP={'lun':0,'mar':1,'mer':2,'jeu':3,'ven':4,'sam':5,'dim':6,'lundi':0,'mardi':1,'mercredi':2,'jeudi':3,'vendredi':4,'samedi':5,'dimanche':6};
       const wk=wkKey(wkOffset);if(!planData[wk])planData[wk]={};
-      let count=0;
+      let count=0;let linked=0;
       for(let i=1;i<rows.length;i++){
         const r=rows[i];
         const jourRaw=(iJour>=0?r[iJour]:'').toLowerCase().trim();
         const di=DAY_MAP[jourRaw]??DAY_MAP[jourRaw.slice(0,3)];
         if(di===undefined)continue;
         if(!planData[wk][di])planData[wk][di]={};
-        if(iDej>=0&&r[iDej]){planData[wk][di].dejeuner={name:r[iDej]};count++;}
-        if(iDin>=0&&r[iDin]){planData[wk][di].diner={name:r[iDin]};count++;}
+        if(iDej>=0&&r[iDej]){
+          const slot=makeMealSlot(r[iDej]);
+          planData[wk][di].dejeuner=slot;
+          if(slot.recipeId)linked++;
+          count++;
+        }
+        if(iDin>=0&&r[iDin]){
+          const slot=makeMealSlot(r[iDin]);
+          planData[wk][di].diner=slot;
+          if(slot.recipeId)linked++;
+          count++;
+        }
       }
       await saveKV();renderCalendar();genShoppingList();
       document.getElementById('exportOverlay').classList.remove('open');
-      alert(`✓ ${count} repas importé${count>1?'s':''} !`);
+      alert(`✓ ${count} repas importé${count>1?'s':''}${linked>0?` (${linked} lié${linked>1?'s':''} à tes recettes → liste de courses générée ✓)`:''}!`);
     }catch(err){alert('Erreur : '+err.message);}
   };
   reader.readAsText(file);event.target.value='';
