@@ -995,7 +995,7 @@ function wkStart(off=0){const n=new Date();const day=n.getDay();const diff=n.get
 function wkKey(off){return wkStart(off).toISOString().slice(0,10);}
 function wkLabel(off){const s=wkStart(off);const e=new Date(s);e.setDate(e.getDate()+6);const o={day:'numeric',month:'short'};return `${s.toLocaleDateString('fr-FR',o)} – ${e.toLocaleDateString('fr-FR',o)}`;}
 function isToday(di){const d=wkStart(wkOffset);d.setDate(d.getDate()+di);const t=new Date();t.setHours(0,0,0,0);return d.getTime()===t.getTime();}
-function changeWeek(dir){wkOffset+=dir;renderCalendar();}
+function changeWeek(dir){wkOffset+=dir;renderCalendar();genShoppingList();}
 
 // ── HISTORY BAR ───────────────────────────────────────────────────
 function renderHistoryBar(){
@@ -1085,9 +1085,16 @@ function genShoppingList(){
   });});
   const current=getShopList();
   const manual=current.filter(i=>i.manual);
-  const newList=[...autoSet].map(name=>{const ex=current.find(i=>i.name===name&&!i.manual);return{name,checked:ex?.checked||false,manual:false,id:name};});
+  // Reconstruire les articles auto en préservant l'état coché
+  const autoList=[...autoSet].map(name=>{
+    const ex=current.find(i=>i.name===name&&!i.manual);
+    return{name,checked:ex?.checked||false,manual:false,id:name};
+  });
+  // Garder les manuels qui ne sont pas déjà dans la liste auto
+  const newList=[...autoList];
   manual.forEach(m=>{if(!newList.find(i=>i.name===m.name))newList.push(m);});
   setShopList(newList);
+  save(); // persiste immédiatement
   renderShoppingList();
 }
 
@@ -1701,15 +1708,15 @@ function importJSON(event){
 load(); // localStorage first for instant display
 checkSharedUrl();
 renderCalendar();
-genShoppingList();
+genShoppingList(); // from localStorage first
 renderSavedRecipesMini();
 document.getElementById('weekNav').style.display='flex';
 try{const icon=generateLogoDataUrl();document.getElementById('appleIcon').href=icon;}catch(e){}
 
-// Then load from KV and refresh
+// Then load from KV and refresh — KV is the source of truth
 loadKV().then(()=>{
   renderCalendar();
-  genShoppingList();
+  genShoppingList(); // regenerate from KV data
   renderSavedRecipesMini();
 });
 
