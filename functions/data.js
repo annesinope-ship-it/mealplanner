@@ -11,16 +11,18 @@ export async function onRequestGet(context) {
       });
     }
 
-    const [planData, shopList, myRecipes] = await Promise.all([
+    const [planData, shopData, myRecipes, weekExtras] = await Promise.all([
       kv.get('planData'),
-      kv.get('shopList'),
+      kv.get('shopData'),
       kv.get('myRecipes'),
+      kv.get('weekExtras'),
     ]);
 
     return new Response(JSON.stringify({
       planData: planData ? JSON.parse(planData) : {},
-      shopList: shopList ? JSON.parse(shopList) : [],
+      shopData: shopData ? JSON.parse(shopData) : {},
       myRecipes: myRecipes ? JSON.parse(myRecipes) : [],
+      weekExtras: weekExtras ? JSON.parse(weekExtras) : {},
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -47,8 +49,9 @@ export async function onRequestPost(context) {
 
     await Promise.all([
       body.planData !== undefined ? kv.put('planData', JSON.stringify(body.planData)) : Promise.resolve(),
-      body.shopList !== undefined ? kv.put('shopList', JSON.stringify(body.shopList)) : Promise.resolve(),
+      body.shopData !== undefined ? kv.put('shopData', JSON.stringify(body.shopData)) : Promise.resolve(),
       body.myRecipes !== undefined ? kv.put('myRecipes', JSON.stringify(body.myRecipes)) : Promise.resolve(),
+      body.weekExtras !== undefined ? kv.put('weekExtras', JSON.stringify(body.weekExtras)) : Promise.resolve(),
     ]);
 
     return new Response(JSON.stringify({ ok: true }), {
