@@ -1414,33 +1414,30 @@ function importRecipesCSV(event){
       const iNom=idx('nom');const iCat=idx('cat');const iTemps=idx('temp');
       const iPorts=idx('port');const iIng=idx('ingr');const iNotes=idx('note');
       const iSrc=idx('source');const iUrl=idx('url');
-      let count=0;
+      let count=0;let updated=0;
       for(let i=1;i<rows.length;i++){
         const r=rows[i];
         const name=iNom>=0?r[iNom]:'';
         if(!name)continue;
-        if(myRecipes.find(x=>x.name.toLowerCase()===name.toLowerCase()))continue;
         const catRaw=(iCat>=0?r[iCat]:'').toLowerCase();
         const catMap={plat:'plat',salade:'salade',dessert:'dessert',snack:'snack',boisson:'boisson'};
         const cat=Object.keys(catMap).find(k=>catRaw.includes(k))||null;
         const ingredients=(iIng>=0?r[iIng]:'').split('|').map(s=>s.trim()).filter(Boolean);
-        myRecipes.unshift({
-          id:'r_'+Date.now()+'_'+i,
-          name,cat,
-          time:iTemps>=0?r[iTemps]:'',
-          servings:iPorts>=0?r[iPorts]:'',
-          ingredients,
-          notes:iNotes>=0?r[iNotes]:'',
-          emoji:null,
-          url:iUrl>=0?r[iUrl]||null:null,
-          source:iSrc>=0?r[iSrc]||null:null,
-          dishPhoto:null
-        });
-        count++;
+        const recipeData={name,cat,time:iTemps>=0?r[iTemps]:'',servings:iPorts>=0?r[iPorts]:'',ingredients,notes:iNotes>=0?r[iNotes]:'',url:iUrl>=0?r[iUrl]||null:null,source:iSrc>=0?r[iSrc]||null:null};
+        // Cherche recette existante — nom exact ou partiel
+        const existing=myRecipes.find(x=>x.name.toLowerCase()===name.toLowerCase())
+          ||myRecipes.find(x=>x.name.toLowerCase().includes(name.toLowerCase())||name.toLowerCase().includes(x.name.toLowerCase()));
+        if(existing){
+          Object.assign(existing,recipeData); // met à jour en conservant id, emoji, dishPhoto, tags
+          updated++;
+        } else {
+          myRecipes.unshift({id:'r_'+Date.now()+'_'+i,emoji:null,tags:[],dishPhoto:null,...recipeData});
+          count++;
+        }
       }
       await saveKV();renderSavedRecipesMini();renderRecipeBook();
       document.getElementById('exportOverlay').classList.remove('open');
-      alert(`✓ ${count} recette${count>1?'s':''} importée${count>1?'s':''} !`);
+      alert(`✓ ${updated} recette${updated>1?'s':''} mise${updated>1?'s':''} à jour${count>0?`, ${count} nouvelle${count>1?'s':''} ajoutée${count>1?'s':''}`:''} !`);
     }catch(err){alert('Erreur lors de l\'import : '+err.message);}
   };
   reader.readAsText(file);
